@@ -33,7 +33,7 @@ export function NewBroadcastModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[780px] rounded-lg p-6">
+      <DialogContent className="max-w-[780px]  rounded-lg p-6">
         <DialogHeader>
           <DialogTitle className="font-display text-xl font-semibold text-text">New Broadcast Message</DialogTitle>
         </DialogHeader>

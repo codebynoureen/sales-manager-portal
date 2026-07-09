@@ -37,12 +37,7 @@ export function TerritoryScreen({ data }: { data: TerritoryDashboardData }) {
             <div className="font-display text-lg font-semibold text-text">Live Booker Positions</div>
             <div className="text-sm text-text-muted">Lahore Territory — updated every 60 seconds</div>
           </div>
-          <button
-            onClick={handleRefresh}
-            className="flex h-10 items-center gap-2 rounded-md border-[1.5px] border-border-strong px-5 text-base font-medium text-primary transition-colors hover:border-primary hover:bg-primary-subtle"
-          >
-            Refresh GPS
-          </button>
+         
         </div>
         <div className="p-4">
           <TerritoryMap positions={data.livePositions} onExceptionClick={setSelectedException} />

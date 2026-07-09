@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { Plus, Award, Wallet, TrendingUp, Clock } from "lucide-react";
+import { KpiCard } from "@/components/sales/kpi-card";
+import { daysUntil } from "@/lib/dates";import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { SchemeCard } from "@/components/sales/scheme-card";
 import { SchemeDetailModal } from "@/components/sales/scheme-detail-modal";
 import { NewSchemeModal } from "@/components/sales/new-scheme-modal";
@@ -23,9 +24,30 @@ const STATUS_LABEL: Record<Scheme["status"], { label: string; className: string 
 function formatPaisa(paisa: number) {
   return (paisa / 100).toLocaleString("en-PK");
 }
-
 export function SchemesScreen({ schemes: initialSchemes }: { schemes: Scheme[] }) {
+
   const [schemes, setSchemes] = useState(initialSchemes);
+
+const active = schemes.filter((s) => s.status === "ACTIVE");
+
+const totalCost = schemes.reduce(
+  (sum, x) => sum + x.costSoFarPaisa,
+  0
+);
+
+const avgUptake = Math.round(
+  active.reduce(
+    (sum, x) =>
+      sum + (x.eligibleShops > 0 ? x.uptakeShops / x.eligibleShops : 0),
+    0
+  ) /
+    (active.length || 1) *
+    100
+);
+
+const expiringSoon = active.filter(
+  (s) => daysUntil(s.endDate) < 3
+).length;
   const [detailScheme, setDetailScheme] = useState<Scheme | null>(null);
   const [newSchemeOpen, setNewSchemeOpen] = useState(false);
 
@@ -40,6 +62,10 @@ export function SchemesScreen({ schemes: initialSchemes }: { schemes: Scheme[] }
     { key: "status", header: "Status", render: (r) => <span className={cn("inline-flex h-[22px] items-center rounded-full px-2.5 text-[11px] font-semibold", STATUS_LABEL[r.status].className)}>{STATUS_LABEL[r.status].label}</span> },
   ];
 
+  function fmtLakh(paisa: number) {
+  return `${(paisa / 100 / 100000).toFixed(2)}L`;
+}
+
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
@@ -52,7 +78,42 @@ export function SchemesScreen({ schemes: initialSchemes }: { schemes: Scheme[] }
           Create New Scheme
         </button>
       </div>
+<div className="mb-6 grid grid-cols-4 gap-5">
 
+  <KpiCard
+    icon={Award}
+    iconColorClass="text-gold"
+    iconBgClass="bg-gold-subtle"
+    value={active.length}
+    label="Active Schemes"
+  />
+
+  <KpiCard
+    icon={Wallet}
+    iconColorClass="text-primary"
+    iconBgClass="bg-primary-subtle"
+    value={fmtLakh(totalCost)}
+    label="Scheme Cost (June)"
+  />
+
+  <KpiCard
+    icon={TrendingUp}
+    iconColorClass="text-success"
+    iconBgClass="bg-success-subtle"
+    value={`${avgUptake}%`}
+    label="Avg. Eligible Shop Uptake"
+  />
+
+  <KpiCard
+    icon={Clock}
+    iconColorClass="text-danger"
+    iconBgClass="bg-danger-subtle"
+    value={expiringSoon}
+    label="Expiring <3 Days"
+    accentBorderClass="border-l-4 border-l-danger"
+  />
+
+</div>
       <div className="mb-6 grid grid-cols-3 gap-5">
         {activeSchemes.map((s) => (
           <SchemeCard key={s.schemeId} scheme={s} onManage={() => setDetailScheme(s)} />

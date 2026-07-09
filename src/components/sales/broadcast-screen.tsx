@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { Plus, MessageCircle, CheckCircle2, Users } from "lucide-react";
+import { KpiCard } from "@/components/sales/kpi-card";import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { NewBroadcastModal } from "@/components/sales/new-broadcast-modal";
 import { cn } from "@/lib/utils";
 import type { BroadcastMessage } from "@/types/sales";
@@ -44,7 +44,33 @@ export function BroadcastScreen({ broadcasts: initialBroadcasts }: { broadcasts:
           New Broadcast
         </button>
       </div>
+<div className="mb-6 grid grid-cols-3 gap-5">
 
+  <KpiCard
+    icon={MessageCircle}
+    iconColorClass="text-[#25D366]"
+    iconBgClass="bg-[#DCFCE7]"
+    value={24}
+    label="Broadcasts Sent (June)"
+  />
+
+  <KpiCard
+    icon={CheckCircle2}
+    iconColorClass="text-success"
+    iconBgClass="bg-success-subtle"
+    value="97%"
+    label="Delivery Rate"
+  />
+
+  <KpiCard
+    icon={Users}
+    iconColorClass="text-primary"
+    iconBgClass="bg-primary-subtle"
+    value={8}
+    label="Bookers in Zone"
+  />
+
+</div>
       <div className="grid grid-cols-[1fr_380px] gap-5">
         <div className="rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <div className="border-b border-border p-5">
