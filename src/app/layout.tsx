@@ -1,25 +1,36 @@
-import { Sidebar } from "@/components/layout/sidebar";
-import { Topbar } from "@/components/layout/topbar";
-import { PulseStrip } from "@/components/layout/pulse-strip";
-import { getPulseSummary } from "@/lib/api/dashboard";
+import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Inter, JetBrains_Mono } from "next/font/google";
+import { Toaster } from "sonner";
+import "./globals.css";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Server-side fetch, scoped to the caller's tenant/territory via JWT — see lib/api/dashboard.ts
-  const pulse = await getPulseSummary();
+const display = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
+  variable: "--display-font",
+});
+const body = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--body-font",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--mono-font",
+});
 
+export const metadata: Metadata = {
+  title: "DistributeOS — Sales Manager Panel",
+  description: "Territory, targets, routes, credit and schemes for Order Booker teams.",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-bg">
-      <Sidebar />
-      <Topbar />
-      <PulseStrip
-        zeroOrderBookers={pulse.zeroOrderBookers}
-        shopsOnHold={pulse.shopsOnHold}
-        outletsPending={pulse.outletsPending}
-        targetPct={pulse.targetPct}
-        dayOfMonth={pulse.dayOfMonth}
-        lastSyncedLabel={pulse.lastSyncedLabel}
-      />
-      <main className="ml-[250px] mt-28 min-h-[calc(100vh-112px)] p-6">{children}</main>
-    </div>
+    <html lang="en">
+      <body className={`${display.variable} ${body.variable} ${mono.variable} font-body antialiased`}>
+        {children}
+        <Toaster richColors position="bottom-right" />
+      </body>
+    </html>
   );
 }
