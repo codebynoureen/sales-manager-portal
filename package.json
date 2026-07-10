@@ -6,15 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "worker:whatsapp": "tsx workers/whatsapp.worker.ts",
+    "worker:beat-generation": "tsx workers/beat-generation.worker.ts",
+    "worker:scheme-expiry": "tsx workers/scheme-expiry.worker.ts",
+    "worker:broadcast-fanout": "tsx workers/broadcast-fanout.worker.ts",
+    "worker:schedule": "tsx workers/schedulers.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@prisma/client": "^6.19.3",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
     "@vis.gl/react-google-maps": "^1.9.0",
+    "bullmq": "^5.34.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "ioredis": "^5.4.1",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
+    "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.13.0",
@@ -31,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

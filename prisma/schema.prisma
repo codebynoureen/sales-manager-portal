@@ -1,0 +1,525 @@
+// ═══════════════════════════════════════════════════════════════
+// DistributeOS — shared multi-tenant schema
+// This file extends the existing retailer-portal schema.
+// RULE: Never remove or rename an existing model/field/enum value —
+// other panels (Retailer, Warehouse, Finance) run against the same DB.
+// Only additive changes below (new models, new optional fields, new
+// enum values appended at the end).
+// ═══════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Existing enums (unchanged) ────────────────────────────────
+enum Role {
+  ADMIN
+  BOOKER
+  DISTRIBUTOR
+  RETAILER
+  SALES_MGR // added for Sales Manager panel — appended, existing values untouched
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+// ── New enums (Sales Manager panel) ───────────────────────────
+enum OutletApprovalStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum BeatVisitStatus {
+  PLANNED
+  CHECKED_IN
+  COMPLETED
+  SKIPPED
+}
+
+enum Weekday {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum SchemeType {
+  BUY_X_GET_Y
+  VOLUME_SLAB
+  FIXED_PRICE
+  COMBO
+  CASH_DISCOUNT
+  CHANNEL
+  NEW_OUTLET
+  HAPPY_HOUR
+}
+
+enum FundingType {
+  SELF_FUNDED
+  PRINCIPAL_FUNDED
+  SPLIT
+}
+
+enum WhatsAppStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ── Existing models (unchanged, only additive fields marked) ──
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  outlets   Outlet[]
+  products  Product[]
+  orders    Order[]
+  invoices  Invoice[]
+  users     User[]
+
+  // additive (Sales Manager panel)
+  beatVisits    BeatVisit[]
+  pjps          Pjp[]
+  targets       Target[]
+  creditHolds   CreditHold[]
+  schemes       Scheme[]
+  broadcasts    Broadcast[]
+  whatsAppLogs  WhatsAppLog[]
+}
+
+model Outlet {
+  id               String   @id @default(cuid())
+  tenantId         String
+  name             String
+  address          String?
+  creditLimitPaisa Int      @default(0)
+  isDeleted        Boolean  @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  users    User[]
+  orders   Order[]
+  invoices Invoice[]
+
+  // additive — outlet registration/approval + territory fields (all optional /
+  // defaulted so existing rows keep working as ACTIVE outlets)
+  approvalStatus         OutletApprovalStatus @default(ACTIVE)
+  area                   String?
+  ownerName              String?
+  mobile                 String?
+  shopType               String?
+  gpsLat                 Decimal?             @db.Decimal(10, 7)
+  gpsLng                 Decimal?             @db.Decimal(10, 7)
+  estMonthlyPurchasePaisa Int?
+  assignedBeat           String?
+  submittedByUserId      String?
+  submittedBy            User?                @relation("OutletSubmittedBy", fields: [submittedByUserId], references: [id])
+  approvedByUserId       String?
+  approvedAt             DateTime?
+  rejectionReason        String?
+
+  beatVisits  BeatVisit[]
+  pjpAssignments PjpAssignment[]
+  creditHolds CreditHold[]
+
+  @@index([tenantId])
+  @@index([tenantId, approvalStatus])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  outletId  String?
+  role      Role
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  outlet Outlet? @relation(fields: [outletId], references: [id])
+
+  // additive — booker/sales-manager fields
+  assignedBeat String?
+  active       Boolean @default(true)
+  mobile       String? // needed for WhatsApp notifications to bookers
+
+  submittedOutlets Outlet[]         @relation("OutletSubmittedBy")
+  beatVisits       BeatVisit[]      @relation("BookerVisits")
+  pjps             Pjp[]            @relation("BookerPjp")
+  pjpAssignments   PjpAssignment[]  @relation("BookerPjpAssignment")
+  targets          Target[]         @relation("BookerTarget")
+  creditHoldsPlaced CreditHold[]    @relation("HoldPlacedBy")
+  whatsAppLogs     WhatsAppLog[]
+
+  @@index([tenantId, outletId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  unit        String   @default("ctn")
+  pricePaisa  Int
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  stockLedger  StockLedger[]
+  orderItems   OrderItem[]
+  invoiceItems InvoiceItem[]
+
+  // additive — used as rewardSkuId / skuConditions target in schemes
+  schemeApplicable SchemeSku[]
+
+  @@index([tenantId])
+}
+
+model StockLedger {
+  id        String   @id @default(cuid())
+  tenantId  String
+  productId String
+  quantity  Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([tenantId, productId])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  orderNo    String      @unique @default(cuid())
+  tenantId   String
+  outletId   String
+  status     OrderStatus @default(PENDING)
+  totalPaisa Int
+  notes      String?
+  deliveryDate DateTime?
+  isDeleted  Boolean     @default(false)
+  deletedAt  DateTime?
+  createdAt  DateTime    @default(now())
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  outlet  Outlet      @relation(fields: [outletId], references: [id])
+  items   OrderItem[]
+  invoice Invoice?
+
+  // additive — which booker booked it (used for target achievement rollups)
+  bookerUserId String?
+
+  @@index([tenantId, outletId])
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  productId  String
+  name       String
+  quantity   Int
+  pricePaisa Int
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  invoiceNo    String        @unique @default(cuid())
+  tenantId     String
+  outletId     String
+  orderId      String?       @unique
+  totalPaisa   Int
+  paidPaisa    Int           @default(0)
+  status       InvoiceStatus @default(PENDING)
+  dueDate      DateTime
+  isDeleted    Boolean       @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime      @default(now())
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  outlet   Outlet          @relation(fields: [outletId], references: [id])
+  order    Order?          @relation(fields: [orderId], references: [id])
+  items    InvoiceItem[]
+  payments InvoicePayment[]
+
+  @@index([tenantId, outletId])
+}
+
+model InvoiceItem {
+  id         String @id @default(cuid())
+  invoiceId  String
+  productId  String
+  name       String
+  quantity   Int
+  pricePaisa Int
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+}
+
+model InvoicePayment {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  amountPaisa Int
+  method     String
+  reference  String?
+  createdAt  DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEW MODELS — Sales Manager Panel (Module 6)
+// Every model: id (cuid), tenantId, createdAt, updatedAt, isDeleted,
+// deletedAt — per the Student Build Guide Section 5/6.2 convention.
+// ═══════════════════════════════════════════════════════════════
+
+model BeatVisit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  bookerUserId  String
+  outletId      String
+  visitDate     DateTime
+  checkinGpsLat Decimal? @db.Decimal(10, 7)
+  checkinGpsLng Decimal? @db.Decimal(10, 7)
+  checkinAt     DateTime?
+  checkoutAt    DateTime?
+  status        BeatVisitStatus @default(PLANNED)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  booker User   @relation("BookerVisits", fields: [bookerUserId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, bookerUserId, visitDate])
+  @@index([tenantId, outletId])
+}
+
+// Weekly Planned Journey Plan header per booker
+model Pjp {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  bookerUserId String
+  active       Boolean @default(true)
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  booker      User            @relation("BookerPjp", fields: [bookerUserId], references: [id])
+  assignments PjpAssignment[]
+
+  @@index([tenantId])
+  @@index([tenantId, bookerUserId])
+}
+
+model PjpAssignment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  pjpId        String
+  bookerUserId String
+  outletId     String
+  day          Weekday
+  frequency    String  @default("WEEKLY") // WEEKLY | TWICE_WEEKLY | BI_WEEKLY
+
+  pjp    Pjp    @relation(fields: [pjpId], references: [id])
+  booker User   @relation("BookerPjpAssignment", fields: [bookerUserId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, bookerUserId, day])
+}
+
+model Target {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  bookerUserId    String
+  targetMonth     String // "2026-07"
+  pkrTargetPaisa  Int
+  newOutletTarget Int     @default(0)
+  skuTargets      Json? // SKU-wise / category-wise breakdown
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  booker User   @relation("BookerTarget", fields: [bookerUserId], references: [id])
+
+  @@unique([bookerUserId, targetMonth])
+  @@index([tenantId])
+  @@index([tenantId, targetMonth])
+}
+
+model CreditHold {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  outletId       String
+  reason         String
+  active         Boolean   @default(true)
+  placedByUserId String
+  releasedAt     DateTime?
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  outlet   Outlet @relation(fields: [outletId], references: [id])
+  placedBy User   @relation("HoldPlacedBy", fields: [placedByUserId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, outletId, active])
+}
+
+model Scheme {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  name        String
+  type        SchemeType
+  startDate   DateTime
+  endDate     DateTime
+  active      Boolean     @default(true)
+  fundingType FundingType
+
+  // eligibility
+  eligibleTiers    Json? // e.g. ["GOLD","SILVER"]
+  eligibleChannels Json? // e.g. ["GENERAL_TRADE"]
+  skuConditions    Json  // [{ productId, minQty, ... }]
+  nonStackable     Boolean @default(false)
+
+  // reward
+  rewardSkuId  String?
+  rewardQty    Int?
+  discountPct  Int? // basis points-free integer percent 0-100
+  fixedPricePaisa Int?
+
+  // quotas
+  maxQtyPerScheme Int?
+  maxQtyPerShop   Int?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  applicableSkus SchemeSku[]
+
+  @@index([tenantId])
+  @@index([tenantId, active, endDate])
+}
+
+// Join table: which products a scheme's skuConditions reference (indexed lookup)
+model SchemeSku {
+  id        String @id @default(cuid())
+  schemeId  String
+  productId String
+
+  scheme  Scheme  @relation(fields: [schemeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([schemeId])
+  @@index([productId])
+}
+
+model Broadcast {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  message      String
+  sentByUserId String
+  targetLabel  String // e.g. "All Bookers in Zone (8)"
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id])
+  receipts BroadcastReceipt[]
+
+  @@index([tenantId])
+}
+
+model BroadcastReceipt {
+  id          String   @id @default(cuid())
+  broadcastId String
+  bookerUserId String
+  status      WhatsAppStatus @default(QUEUED)
+  updatedAt   DateTime @updatedAt
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id])
+
+  @@index([broadcastId])
+}
+
+model WhatsAppLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+
+  toUserId     String?
+  toPhone      String
+  templateName String
+  variables    Json?
+  messageSid   String?
+  status       WhatsAppStatus @default(QUEUED)
+  errorMessage String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  toUser User?  @relation(fields: [toUserId], references: [id])
+
+  @@index([tenantId])
+  @@index([messageSid])
+}
