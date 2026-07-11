@@ -1,5 +1,7 @@
 "use client";
 
+
+
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -38,7 +40,7 @@ const achievedPaisa = targets.reduce(
 );
 
 const pct = teamTargetPaisa
- ? Math.round((achievedPaisa/teamTargetPaisa)*100)
+ ? (achievedPaisa/teamTargetPaisa)*100
  : 0;
 
 const remainingPaisa = teamTargetPaisa-achievedPaisa;
@@ -103,7 +105,7 @@ const daysRemaining = 1;
       value={fmtLakh(achievedPaisa)}
       label="Achieved So Far"
       delta={{
-        text: `${pct}% of target`,
+        text: `${pct.toFixed(1)}% of target`,
         direction: "up"
       }}
     />

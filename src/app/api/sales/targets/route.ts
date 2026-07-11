@@ -1,7 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ok, requireField, withErrorHandling } from "@/lib/api-response";
-
+import { ok, requireField, withErrorHandling, ValidationError } from "@/lib/api-response";
 interface SetTargetBody {
   bookerUserId: string;
   targetMonth: string; // "2026-07"
@@ -19,10 +18,15 @@ export const POST = withErrorHandling(async (req) => {
   const targetMonth = requireField(body.targetMonth, "targetMonth");
   const pkrTargetPaisa = requireField(body.pkrTargetPaisa, "pkrTargetPaisa");
 
-  if (!Number.isInteger(pkrTargetPaisa) || pkrTargetPaisa < 0) {
-    throw new Error("pkrTargetPaisa must be a non-negative integer (paisa)");
-  }
-
+  const MAX_INT4 = 2_147_483_647; // Postgres Int column limit
+if (!Number.isInteger(pkrTargetPaisa) || pkrTargetPaisa < 0) {
+  throw new ValidationError("pkrTargetPaisa must be a non-negative integer (paisa)");
+}
+if (pkrTargetPaisa > MAX_INT4) {
+  throw new ValidationError(
+    `PKR target too large — max allowed is PKR ${(MAX_INT4 / 100).toLocaleString("en-PK")}`
+  );
+}
   // RULE 1: booker must belong to this manager's tenant.
   const booker = await prisma.user.findFirst({
     where: { id: bookerUserId, tenantId: session.tenantId, role: "BOOKER" } as never,

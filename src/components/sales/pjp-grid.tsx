@@ -1,30 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { AddShopModal } from "@/components/sales/add-shop-modal";
 import type { PjpShopAssignment, Weekday } from "@/types/sales";
 
 const DAYS: Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+type Frequency = "WEEKLY" | "TWICE_WEEKLY" | "BI_WEEKLY";
+type Assignment = PjpShopAssignment & { frequency: Frequency };
+
+interface BookerOption {
+  id: string;
+  name: string;
+  area: string | null;
+}
 
 export function PjpGrid({ initialAssignments }: { initialAssignments: PjpShopAssignment[] }) {
-  const [assignments, setAssignments] = useState(initialAssignments);
+  const [bookers, setBookers] = useState<BookerOption[]>([]);
+  const [selectedBookerId, setSelectedBookerId] = useState<string>("");
+  const [assignments, setAssignments] = useState<Assignment[]>(
+    initialAssignments.map((a) => ({ ...a, frequency: "WEEKLY" }))
+  );
   const [addDay, setAddDay] = useState<Weekday | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setAssignments(initialAssignments.map((a) => ({ ...a, frequency: "WEEKLY" })));
+  }, [initialAssignments]);
+
+  useEffect(() => {
+    fetch("/api/sales/bookers")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data?.length) {
+          setBookers(json.data);
+          setSelectedBookerId((prev) => prev || json.data[0].id);
+        }
+      })
+      .catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBookerId) return;
+    fetch(`/api/sales/pjp?bookerUserId=${selectedBookerId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data) {
+          setAssignments(json.data.map((a: PjpShopAssignment) => ({ ...a, frequency: "WEEKLY" })));
+        }
+      })
+      .catch(() => null);
+  }, [selectedBookerId]);
 
   function removeShop(day: Weekday, shopId: string) {
     setAssignments((prev) => prev.filter((a) => !(a.day === day && a.shopId === shopId)));
-    toast.warning("Shop removed from route");
+    toast.warning("Shop removed — click Save PJP to persist it");
   }
 
-  function addShop(day: Weekday, shopName: string) {
-    setAssignments((prev) => [...prev, { day, shopId: `new-${Date.now()}`, shopName }]);
+  function addShop(day: Weekday, shop: { shopId: string; shopName: string; frequency: Frequency }) {
+    setAssignments((prev) => {
+      const withoutDupe = prev.filter((a) => !(a.day === day && a.shopId === shop.shopId));
+      return [...withoutDupe, { day, shopId: shop.shopId, shopName: shop.shopName, frequency: shop.frequency }];
+    });
   }
 
   async function handleSavePjp() {
-    // POST /api/sales/pjp — see Student Build Guide Section 4.3
-    await fetch("/api/sales/pjp", { method: "POST" }).catch(() => null);
-    toast.success('PJP saved — auto-generates daily visit lists');
+    if (!selectedBookerId) {
+      toast.error("Select a booker first");
+      return;
+    }
+    if (assignments.length === 0) {
+      toast.error("Add at least one shop before saving");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/sales/pjp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookerUserId: selectedBookerId,
+          assignments: assignments.map((a) => ({ shopId: a.shopId, day: a.day, frequency: a.frequency })),
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Failed to save route");
+        return;
+      }
+
+      const refreshed = await fetch(`/api/sales/pjp?bookerUserId=${selectedBookerId}`);
+      const refreshedJson = await refreshed.json();
+      if (refreshedJson.data) {
+        setAssignments(refreshedJson.data.map((a: PjpShopAssignment) => ({ ...a, frequency: "WEEKLY" })));
+      }
+
+      toast.success("PJP saved — auto-generates daily visit lists");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -35,13 +112,24 @@ export function PjpGrid({ initialAssignments }: { initialAssignments: PjpShopAss
           <p className="mt-1 text-base text-text-muted">Permanent Journey Plan — weekly route per booker, system auto-generates daily visit lists</p>
         </div>
         <div className="flex items-center gap-3">
-          <select className="h-10 w-[220px] rounded-sm border-[1.5px] border-border bg-surface2 px-3 text-base text-text outline-none">
-            <option>Usman Khan — Model Town</option>
-            <option>Naveed Ahmed — DHA Phase 5</option>
-            <option>Sara Malik — Johar Town</option>
+          <select
+            value={selectedBookerId}
+            onChange={(e) => setSelectedBookerId(e.target.value)}
+            className="h-10 w-[220px] rounded-sm border-[1.5px] border-border bg-surface2 px-3 text-base text-text outline-none"
+          >
+            {bookers.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+                {b.area ? ` — ${b.area}` : ""}
+              </option>
+            ))}
           </select>
-          <button onClick={handleSavePjp} className="flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-base font-medium text-white transition-colors hover:bg-primary-hover">
-            Save PJP
+          <button
+            onClick={handleSavePjp}
+            disabled={saving}
+            className="flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-base font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save PJP"}
           </button>
         </div>
       </div>
@@ -81,7 +169,12 @@ export function PjpGrid({ initialAssignments }: { initialAssignments: PjpShopAss
         ))}
       </div>
 
-      <AddShopModal day={addDay} open={addDay !== null} onOpenChange={(o) => !o && setAddDay(null)} onAdd={(name) => addDay && addShop(addDay, name)} />
+      <AddShopModal
+        day={addDay}
+        open={addDay !== null}
+        onOpenChange={(o) => !o && setAddDay(null)}
+        onAdd={(shop) => addDay && addShop(addDay, shop)}
+      />
     </>
   );
 }

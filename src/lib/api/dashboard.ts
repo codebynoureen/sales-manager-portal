@@ -56,14 +56,23 @@ export async function getTerritoryDashboard(): Promise<TerritoryDashboardData> {
 
 /** Small derived summary for the PulseStrip, shared across every /sales/* screen */
 export async function getPulseSummary() {
-  const dashboard = await getTerritoryDashboard();
+  const [dashboard, creditHolds, pendingOutlets, targets] = await Promise.all([
+    getTerritoryDashboard(),
+    import("./sales").then((m) => m.getCreditHolds()),
+    import("./sales").then((m) => m.getPendingOutlets()),
+    import("./sales").then((m) => m.getBookerTargets()),
+  ]);
+
+  const teamTarget = targets.reduce((s, t) => s + t.pkrTargetPaisa, 0);
+  const teamAchieved = targets.reduce((s, t) => s + t.pkrAchievedPaisa, 0);
+  const targetPct = teamTarget > 0 ? Math.round((teamAchieved / teamTarget) * 100) : 0;
 
   return {
     zeroOrderBookers: dashboard.bookerStats.filter((b) => b.status === "ZERO_ORDERS").length,
-    shopsOnHold: 14, // TODO: GET /api/credit/shops?status=HOLD count (Section 4.4)
-    outletsPending: 5, // TODO: GET /api/booker/outlets?status=PENDING count (Section 4.6)
-    targetPct: 68, // TODO: GET /api/sales/targets/achievement team rollup (Section 4.2)
-    dayOfMonth: 30,
-    lastSyncedLabel: "1 min ago",
+    shopsOnHold: creditHolds.length,
+    outletsPending: pendingOutlets.length,
+    targetPct,
+    dayOfMonth: new Date().getDate(),
+    lastSyncedLabel: "Just now",
   };
 }

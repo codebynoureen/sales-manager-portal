@@ -1,28 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FormField, Input, Select } from "@/components/ui/form-field";
+import { FormField, Select } from "@/components/ui/form-field";
 import type { Weekday } from "@/types/sales";
+
+interface OutletOption {
+  id: string;
+  name: string;
+  area: string | null;
+}
 
 interface AddShopModalProps {
   day: Weekday | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (shopName: string) => void;
+  onAdd: (shop: { shopId: string; shopName: string; frequency: "WEEKLY" | "TWICE_WEEKLY" | "BI_WEEKLY" }) => void;
 }
 
 export function AddShopModal({ day, open, onOpenChange, onAdd }: AddShopModalProps) {
-  const [shopName, setShopName] = useState("");
+  const [outlets, setOutlets] = useState<OutletOption[]>([]);
+  const [shopId, setShopId] = useState("");
+  const [frequency, setFrequency] = useState<"WEEKLY" | "TWICE_WEEKLY" | "BI_WEEKLY">("WEEKLY");
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/outlets")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data) setOutlets(json.data);
+      })
+      .catch(() => null);
+  }, [open]);
 
   function handleAdd() {
-    if (!shopName.trim()) return;
-    onAdd(shopName.trim());
-    setShopName("");
+    const outlet = outlets.find((o) => o.id === shopId);
+    if (!outlet) {
+      toast.error("Please select a shop");
+      return;
+    }
+    onAdd({ shopId: outlet.id, shopName: outlet.name, frequency });
+    setShopId("");
+    setFrequency("WEEKLY");
     onOpenChange(false);
-    toast.success("Shop added to route");
+    toast.success("Shop added to route — click Save PJP to persist it");
   }
 
   return (
@@ -33,14 +56,22 @@ export function AddShopModal({ day, open, onOpenChange, onAdd }: AddShopModalPro
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <FormField label="Search Shop">
-            <Input placeholder="Type shop name…" value={shopName} onChange={(e) => setShopName(e.target.value)} />
+          <FormField label="Shop" required>
+            <Select value={shopId} onChange={(e) => setShopId(e.target.value)}>
+              <option value="">Select shop…</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                  {o.area ? ` — ${o.area}` : ""}
+                </option>
+              ))}
+            </Select>
           </FormField>
           <FormField label="Visit Frequency">
-            <Select defaultValue="Weekly">
-              <option>Weekly</option>
-              <option>Twice a week</option>
-              <option>Bi-weekly</option>
+            <Select value={frequency} onChange={(e) => setFrequency(e.target.value as typeof frequency)}>
+              <option value="WEEKLY">Weekly</option>
+              <option value="TWICE_WEEKLY">Twice a week</option>
+              <option value="BI_WEEKLY">Bi-weekly</option>
             </Select>
           </FormField>
         </div>

@@ -15,8 +15,7 @@ interface ApproveBody {
  * set credit limit + beat, notify the submitting booker via WhatsApp.
  */
 export const PATCH = withErrorHandling(async (req, ctx) => {
-  const { id } = (ctx as { params: { id: string } }).params;
-  const session = await requireRole("SALES_MGR", "ADMIN");
+const { id } = await (ctx as { params: Promise<{ id: string }> }).params;  const session = await requireRole("SALES_MGR", "ADMIN");
   const body = (await req.json()) as ApproveBody;
 
   const decision = requireField(body.decision, "decision");

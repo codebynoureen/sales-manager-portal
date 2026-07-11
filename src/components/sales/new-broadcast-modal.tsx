@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FormField, Select, Textarea } from "@/components/ui/form-field";
+
+interface BookerOption {
+  id: string;
+  name: string;
+}
 
 export function NewBroadcastModal({
   open,
@@ -13,22 +19,55 @@ export function NewBroadcastModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSent: (message: string, recipients: number) => void;
+  onSent?: (message: string, recipients: number) => void;
 }) {
+  const router = useRouter();
+  const [bookers, setBookers] = useState<BookerOption[]>([]);
   const [message, setMessage] = useState("");
-  const [recipients, setRecipients] = useState(8);
+  const [target, setTarget] = useState("ALL");
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/sales/bookers")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data) setBookers(json.data);
+      })
+      .catch(() => null);
+  }, [open]);
 
   async function handleSend() {
     if (!message.trim()) return;
     setSending(true);
-    // POST /api/sales/broadcast — fan-out push + WhatsApp via BullMQ, approved Twilio template only (Section 4.7)
-    await fetch("/api/sales/broadcast", { method: "POST" }).catch(() => null);
-    setSending(false);
-    onSent(message.trim(), recipients);
-    onOpenChange(false);
-    toast.success(`Broadcast sent to ${recipients} bookers`);
-    setMessage("");
+    try {
+      const isAll = target === "ALL";
+      const res = await fetch("/api/sales/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: message.trim(),
+          targetLabel: isAll ? `All Bookers in Zone (${bookers.length})` : bookers.find((b) => b.id === target)?.name ?? "Selected Booker",
+          bookerUserIds: isAll ? undefined : [target],
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Failed to send broadcast");
+        return;
+      }
+
+      const recipients = isAll ? bookers.length : 1;
+
+      onOpenChange(false);
+      onSent?.(message.trim(), recipients);
+      toast.success(json.message ?? "Broadcast sent");
+      setMessage("");
+      router.refresh();
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -40,10 +79,13 @@ export function NewBroadcastModal({
 
         <div className="mb-5">
           <FormField label="Recipients" required>
-            <Select value={recipients} onChange={(e) => setRecipients(Number(e.target.value))}>
-              <option value={8}>All Bookers in Zone (8)</option>
-              <option value={1}>Model Town Only (1)</option>
-              <option value={1}>DHA Phase 5 Only (1)</option>
+            <Select value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="ALL">All Bookers in Zone ({bookers.length})</option>
+              {bookers.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} only
+                </option>
+              ))}
             </Select>
           </FormField>
         </div>

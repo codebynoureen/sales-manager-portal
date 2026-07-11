@@ -13,7 +13,9 @@ export function fail(error: string, status = 400) {
 /**
  * Wraps a route handler: converts AuthError -> proper 401/403 JSON,
  * validation errors -> 400, and anything unexpected -> 500 without
- * leaking internals. Keeps every route's try/catch identical.
+ * leaking internals in production. In development, the real error
+ * message is included so bugs are debuggable instead of showing a
+ * generic "Internal server error" for everything.
  */
 export function withErrorHandling(
   handler: (req: Request, ctx: unknown) => Promise<NextResponse>
@@ -29,7 +31,11 @@ export function withErrorHandling(
         return fail(err.message, 400);
       }
       console.error(err);
-      return fail("Internal server error", 500);
+      const detail =
+        process.env.NODE_ENV !== "production" && err instanceof Error
+          ? `Internal server error: ${err.message}`
+          : "Internal server error";
+      return fail(detail, 500);
     }
   };
 }

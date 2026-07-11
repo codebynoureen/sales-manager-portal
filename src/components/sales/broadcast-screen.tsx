@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, MessageCircle, CheckCircle2, Users } from "lucide-react";
 import { KpiCard } from "@/components/sales/kpi-card";import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { NewBroadcastModal } from "@/components/sales/new-broadcast-modal";
@@ -11,6 +11,10 @@ export function BroadcastScreen({ broadcasts: initialBroadcasts }: { broadcasts:
   const [broadcasts, setBroadcasts] = useState(initialBroadcasts);
   const [modalOpen, setModalOpen] = useState(false);
   const [lastSent, setLastSent] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBroadcasts(initialBroadcasts);
+  }, [initialBroadcasts]);
 
   function handleSent(message: string, recipients: number) {
     setBroadcasts((prev) => [{ broadcastId: `bc-${Date.now()}`, message, recipients, delivered: recipients, sentAgo: "Just now" }, ...prev]);

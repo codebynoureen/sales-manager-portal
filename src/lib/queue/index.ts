@@ -2,7 +2,25 @@ import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
 const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
+  // maxRetriesPerRequest: null is BullMQ's recommendation for WORKERS (which
+  // must stay connected forever). For the producer side (API routes), it
+  // means a broken/misconfigured Redis retries forever and hangs the
+  // request — so here we fail fast instead.
+  maxRetriesPerRequest: 1,
+  retryStrategy: () => null, // don't keep retrying the initial connection
+  enableOfflineQueue: false, // don't queue commands while disconnected — fail immediately
+  connectTimeout: 3000,
+  lazyConnect: true, // don't even try connecting until the first command is issued
+});
+
+// Redis connection errors are expected during setup (before REDIS_URL is
+// configured correctly) — log once, don't crash the process or spam stdout.
+let loggedConnectionError = false;
+connection.on("error", (err) => {
+  if (!loggedConnectionError) {
+    console.warn("[redis] connection issue — WhatsApp/queue features are disabled until this is fixed:", err.message);
+    loggedConnectionError = true;
+  }
 });
 
 export const QUEUE_NAMES = {
@@ -12,8 +30,6 @@ export const QUEUE_NAMES = {
   BROADCAST_FANOUT: "broadcast-fanout",
 } as const;
 
-// Singleton pattern, same reasoning as prisma.ts — avoid re-creating
-// queue instances (and Redis connections) on every hot reload/request.
 const globalForQueues = globalThis as unknown as {
   whatsappQueue?: Queue;
   beatGenerationQueue?: Queue;
@@ -48,12 +64,20 @@ export interface WhatsAppJobData {
   variables: Record<string, string>;
 }
 
-/** Enqueue a WhatsApp send — never call Twilio directly from a route (Golden Rule 4). */
+/**
+ * Enqueue a WhatsApp send — never call Twilio directly from a route (Golden Rule 4).
+ * Swallows Redis/queue errors so a broken WhatsApp pipeline never blocks or
+ * fails the actual business action (placing a hold, approving an outlet, etc).
+ */
 export async function enqueueWhatsApp(data: WhatsAppJobData) {
-  await whatsappQueue.add("send", data, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 5000 },
-  });
+  try {
+    await whatsappQueue.add("send", data, {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+    });
+  } catch (err) {
+    console.warn("[queue] failed to enqueue WhatsApp message (Redis likely unavailable):", err instanceof Error ? err.message : err);
+  }
 }
 
 export interface BroadcastFanoutJobData {
@@ -64,5 +88,9 @@ export interface BroadcastFanoutJobData {
 }
 
 export async function enqueueBroadcastFanout(data: BroadcastFanoutJobData) {
-  await broadcastFanoutQueue.add("fanout", data, { attempts: 3 });
+  try {
+    await broadcastFanoutQueue.add("fanout", data, { attempts: 3 });
+  } catch (err) {
+    console.warn("[queue] failed to enqueue broadcast fanout (Redis likely unavailable):", err instanceof Error ? err.message : err);
+  }
 }

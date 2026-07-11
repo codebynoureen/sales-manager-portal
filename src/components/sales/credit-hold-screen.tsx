@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -16,14 +17,30 @@ function fmtLakh(paisa:number){
  return `${(paisa / 100 / 100000).toFixed(1)}L`;
 }
 export function CreditHoldScreen({ shops: initialShops }: { shops: CreditHoldShop[] }) {
+  const router = useRouter();
   const [shops, setShops] = useState(initialShops);
   const [modalOpen, setModalOpen] = useState(false);
 
+  useEffect(() => {
+    setShops(initialShops);
+  }, [initialShops]);
+
   async function handleRelease(shop: CreditHoldShop) {
-    // POST /api/credit/shops/:shopId/hold — lift hold, notify via WhatsApp (Section 4.4)
-    await fetch(`/api/credit/shops/${shop.shopId}/hold`, { method: "POST" }).catch(() => null);
+    const res = await fetch(`/api/credit/shops/${shop.shopId}/hold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "RELEASE" }),
+    });
+    const json = await res.json();
+
+    if (!res.ok || json.error) {
+      toast.error(json.error ?? "Failed to release hold");
+      return;
+    }
+
     setShops((prev) => prev.filter((s) => s.shopId !== shop.shopId));
     toast.success(`${shop.shopName} released from credit hold — WhatsApp sent`);
+    router.refresh();
   }
 
   const columns: DataTableColumn<CreditHoldShop>[] = [

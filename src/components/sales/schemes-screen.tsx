@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Award, Wallet, TrendingUp, Clock } from "lucide-react";
+import { useEffect, useState } from "react";import { Plus, Award, Wallet, TrendingUp, Clock } from "lucide-react";
 import { KpiCard } from "@/components/sales/kpi-card";
 import { daysUntil } from "@/lib/dates";import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { SchemeCard } from "@/components/sales/scheme-card";
@@ -26,8 +25,10 @@ function formatPaisa(paisa: number) {
 }
 export function SchemesScreen({ schemes: initialSchemes }: { schemes: Scheme[] }) {
 
-  const [schemes, setSchemes] = useState(initialSchemes);
-
+const [schemes, setSchemes] = useState(initialSchemes);
+useEffect(() => {
+  setSchemes(initialSchemes);
+}, [initialSchemes]);
 const active = schemes.filter((s) => s.status === "ACTIVE");
 
 const totalCost = schemes.reduce(

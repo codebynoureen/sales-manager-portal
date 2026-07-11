@@ -15,7 +15,7 @@ interface HoldBody {
  * not be renamed without coordinating with that team (Section 4.4, item 16).
  */
 export const POST = withErrorHandling(async (req, ctx) => {
-  const { shopId } = (ctx as { params: { shopId: string } }).params;
+const { shopId } = await (ctx as { params: Promise<{ shopId: string }> }).params;
   const session = await requireRole("SALES_MGR", "ADMIN");
   const body = (await req.json()) as HoldBody;
 
