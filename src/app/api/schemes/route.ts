@@ -2,11 +2,71 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, requireField, withErrorHandling } from "@/lib/api-response";
 import type { FundingType, SchemeType } from "@prisma/client";
+import type { Scheme as SchemeRow } from "@/types/sales";
 
 interface SkuCondition {
   productId: string;
   minQty?: number;
 }
+
+/**
+ * GET /api/schemes — list all schemes (Section 4.5 list view).
+ *
+ * NOTE / gap: `eligibleShops` is approximated as "active outlets in tenant
+ * matching eligibleChannels" since there's no explicit shop-tier list per
+ * scheme. `uptakeShops` and `costSoFarPaisa` are 0 for now — there's no
+ * redemption-tracking table yet (a scheme "used" event isn't recorded
+ * anywhere when an order applies it). Add a SchemeRedemption model + write
+ * to it from wherever the Order Booker app actually submits an order using
+ * GET /api/schemes/eligible's result, then wire these up for real.
+ */
+export const GET = withErrorHandling(async () => {
+  const session = await requireRole("SALES_MGR", "ADMIN");
+  const now = new Date();
+
+  const schemes = await prisma.scheme.findMany({
+    where: { tenantId: session.tenantId, isDeleted: false },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const outletCount = await prisma.outlet.count({
+    where: { tenantId: session.tenantId, approvalStatus: "ACTIVE", isDeleted: false } as never,
+  });
+
+  const rows: SchemeRow[] = await Promise.all(
+    schemes.map(async (s) => {
+      const skuConditions = s.skuConditions as unknown as SkuCondition[];
+      const firstProductId = skuConditions?.[0]?.productId;
+      const firstProduct = firstProductId
+        ? await prisma.product.findUnique({ where: { id: firstProductId }, select: { name: true } })
+        : null;
+
+      const status: SchemeRow["status"] = !s.active
+        ? "EXPIRED"
+        : s.startDate > now
+          ? "DRAFT"
+          : s.endDate < now
+            ? "EXPIRED"
+            : "ACTIVE";
+
+      return {
+        schemeId: s.id,
+        name: s.name,
+        type: s.type,
+        skuLabel: firstProduct?.name ?? "—",
+        fundingType: s.fundingType,
+        startDate: s.startDate.toISOString().slice(0, 10),
+        endDate: s.endDate.toISOString().slice(0, 10),
+        eligibleShops: outletCount, // TODO: narrow by eligibleTiers/eligibleChannels
+        uptakeShops: 0, // TODO: needs a SchemeRedemption model
+        costSoFarPaisa: 0, // TODO: needs a SchemeRedemption model
+        status,
+      };
+    })
+  );
+
+  return ok(rows);
+});
 
 interface CreateSchemeBody {
   name: string;

@@ -59,7 +59,7 @@ export const POST = withErrorHandling(async (req) => {
         select: { id: true },
       })
     : await prisma.user.findMany({
-        where: { tenantId: session.tenantId, role: "BOOKER", active: true, isDeleted: false } as never,
+        where: { tenantId: session.tenantId, role: "BOOKER", active: true } as never,
         select: { id: true },
       });
 

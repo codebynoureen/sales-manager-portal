@@ -20,7 +20,7 @@ export const GET = withErrorHandling(async () => {
   // Territory is modelled at the tenant level today — if/when a
   // dedicated Territory model is added, add `assignedTerritoryId` here.
   const bookers = await prisma.user.findMany({
-    where: { tenantId: session.tenantId, role: "BOOKER", active: true, isDeleted: false } as never,
+    where: { tenantId: session.tenantId, role: "BOOKER", active: true} as never,
     select: { id: true, name: true, assignedBeat: true },
   });
   const bookerIds = bookers.map((b) => b.id);

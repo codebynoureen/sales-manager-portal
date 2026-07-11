@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 
 export interface SessionUser {
@@ -7,6 +7,7 @@ export interface SessionUser {
   tenantId: string;
   role: Role;
   email: string | null;
+  name: string | null;
   assignedBeat: string | null;
 }
 
@@ -19,29 +20,16 @@ export class AuthError extends Error {
 }
 
 /**
- * Reads the Supabase session from cookies and extracts userId, tenantId,
- * and role from the JWT's app_metadata custom claims (RULE 6 — the JWT
- * must contain userId, tenantId, role).
+ * Reads the Supabase session from cookies, extracts tenantId/role from the
+ * JWT's app_metadata custom claims, and looks up the person's display name
+ * from our own User table (Supabase Auth doesn't store it by default).
  *
- * tenantId/role are expected to be set as Supabase Auth custom claims
- * (app_metadata) at user-creation time — never trust a client-supplied
- * tenantId/role from the request body.
+ * IMPORTANT: this only works if User.id in Prisma equals the Supabase Auth
+ * user's UID — when you create a Sales Manager/Booker's Supabase Auth
+ * account, create their Prisma `User` row with that same id.
  */
 export async function getSessionUser(): Promise<SessionUser> {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        // API routes are read-only w.r.t. auth cookies here; refresh is
-        // handled by the Supabase middleware elsewhere in the app.
-        setAll: () => {},
-      },
-    }
-  );
+  const supabase = await createClient();
 
   const {
     data: { user },
@@ -59,11 +47,17 @@ export async function getSessionUser(): Promise<SessionUser> {
     throw new AuthError("Session is missing tenantId/role claims", 401);
   }
 
+  const profile = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { name: true },
+  });
+
   return {
     userId: user.id,
     tenantId,
     role,
     email: user.email ?? null,
+    name: profile?.name ?? null,
     assignedBeat: (user.app_metadata?.assignedBeat as string | undefined) ?? null,
   };
 }

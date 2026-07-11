@@ -20,7 +20,7 @@ export const GET = withErrorHandling(async (req) => {
   since.setDate(since.getDate() - days);
 
   const bookers = await prisma.user.findMany({
-    where: { tenantId: session.tenantId, role: "BOOKER", isDeleted: false } as never,
+    where: { tenantId: session.tenantId, role: "BOOKER" } as never,
     select: { id: true, name: true },
   });
   const bookerIds = bookers.map((b) => b.id);

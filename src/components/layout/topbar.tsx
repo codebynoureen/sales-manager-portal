@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Search, Bell } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Search, Bell, LogOut } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const SCREEN_META: Record<string, { title: string; breadcrumb: string }> = {
   "/sales": { title: "Territory Map Dashboard", breadcrumb: "Sales Manager → Overview → Territory Map" },
@@ -15,7 +16,15 @@ const SCREEN_META: Record<string, { title: string; breadcrumb: string }> = {
 
 export function Topbar({ userName = "Farhan Yousuf", userInitials = "FY" }: { userName?: string; userInitials?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const meta = SCREEN_META[pathname] ?? { title: "Sales Manager", breadcrumb: "Sales Manager" };
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <header className="fixed left-[250px] right-0 top-0 z-[100] flex h-16 items-center gap-4 border-b border-border bg-surface px-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-primary">
@@ -33,12 +42,19 @@ export function Topbar({ userName = "Farhan Yousuf", userInitials = "FY" }: { us
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-surface bg-danger" />
         </button>
         <div className="mx-2 h-6 w-px bg-border" />
-        <div className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-surface3">
+        <div className="flex items-center gap-2 rounded-md px-2 py-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-subtle text-sm font-semibold text-primary">
             {userInitials}
           </div>
           <span className="text-base font-medium text-text">{userName}</span>
         </div>
+        <button
+          onClick={handleLogout}
+          title="Log out"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+        >
+          <LogOut className="h-[18px] w-[18px]" strokeWidth={2} />
+        </button>
       </div>
     </header>
   );

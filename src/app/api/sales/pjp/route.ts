@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, requireField, withErrorHandling } from "@/lib/api-response";
-import type { Weekday } from "@/types/sales";
+import type { PjpShopAssignment, Weekday } from "@/types/sales";
 
 const WEEKDAY_TO_DB: Record<Weekday, "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT"> = {
   Mon: "MON",
@@ -12,11 +12,59 @@ const WEEKDAY_TO_DB: Record<Weekday, "MON" | "TUE" | "WED" | "THU" | "FRI" | "SA
   Sat: "SAT",
 };
 
+const DB_TO_WEEKDAY: Record<string, Weekday> = {
+  MON: "Mon",
+  TUE: "Tue",
+  WED: "Wed",
+  THU: "Thu",
+  FRI: "Fri",
+  SAT: "Sat",
+};
+
 interface PjpAssignmentInput {
   shopId: string;
   day: Weekday;
   frequency?: "WEEKLY" | "TWICE_WEEKLY" | "BI_WEEKLY";
 }
+
+/**
+ * GET /api/sales/pjp?bookerUserId= — a booker's current weekly route.
+ * bookerUserId is optional for now: the current frontend page doesn't yet
+ * have a booker selector, so it falls back to the tenant's first active
+ * booker. Pass bookerUserId explicitly once a selector is added.
+ */
+export const GET = withErrorHandling(async (req) => {
+  const session = await requireRole("SALES_MGR", "ADMIN");
+  const { searchParams } = new URL(req.url);
+  let bookerUserId = searchParams.get("bookerUserId");
+
+  if (!bookerUserId) {
+    const firstBooker = await prisma.user.findFirst({
+      where: { tenantId: session.tenantId, role: "BOOKER", active: true } as never,
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!firstBooker) return ok([]);
+    bookerUserId = firstBooker.id;
+  }
+
+  const assignments = await prisma.pjpAssignment.findMany({
+    where: {
+      tenantId: session.tenantId,
+      bookerUserId,
+      isDeleted: false,
+      pjp: { active: true, isDeleted: false },
+    },
+    include: { outlet: { select: { name: true } } },
+    orderBy: { day: "asc" },
+  });
+
+  const rows: PjpShopAssignment[] = assignments
+    .filter((a) => DB_TO_WEEKDAY[a.day])
+    .map((a) => ({ day: DB_TO_WEEKDAY[a.day], shopId: a.outletId, shopName: a.outlet.name }));
+
+  return ok(rows);
+});
 
 interface SetPjpBody {
   bookerUserId: string;
