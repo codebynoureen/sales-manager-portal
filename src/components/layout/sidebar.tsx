@@ -108,30 +108,34 @@ export function Sidebar({
               const Icon = item.icon;
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "mx-2 my-px flex h-11 items-center gap-3 whitespace-nowrap rounded-md px-4 text-md font-medium transition-colors",
-                    active
-                      ? "bg-primary text-white"
-                      : "text-text-sidebar hover:bg-secondary-mid hover:text-white"
-                  )}
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
-                  {item.label}
-                  {item.badge && (
-                    <span
-                      className={cn(
-                        "ml-auto flex h-[18px] items-center rounded-full px-1.5 text-[10px] font-semibold",
-                        item.badge.variant === "danger"
-                          ? "bg-danger-subtle text-danger"
-                          : "bg-warning-subtle text-warning"
-                      )}
-                    >
-                      {item.badge.count}
-                    </span>
-                  )}
-                </Link>
+  key={item.href}
+  href={item.href}
+  className={cn(
+    "mx-2 my-px flex h-11 w-full items-center rounded-md px-4 text-md font-medium transition-colors",
+    active
+      ? "bg-primary text-white"
+      : "text-text-sidebar hover:bg-secondary-mid hover:text-white"
+  )}
+>
+  <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
+
+  <span className="ml-3 flex-1 truncate">
+    {item.label}
+  </span>
+
+  {item.badge && (
+    <span
+      className={cn(
+        "ml-2 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+        item.badge.variant === "danger"
+          ? "bg-danger-subtle text-danger"
+          : "bg-warning-subtle text-warning"
+      )}
+    >
+      {item.badge.count}
+    </span>
+  )}
+</Link>
               );
             })}
           </div>

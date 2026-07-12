@@ -35,7 +35,17 @@ export async function getBookerTargets(): Promise<BookerTarget[]> {
   const { data } = await serverFetch<BookerTarget[]>("/api/sales/targets/achievement");
   return data ?? [];
 }
+/** GET /api/credit/shops?status=HOLD (Section 4.4) */
+export async function getCreditHolds(): Promise<CreditHoldShop[]> {
+  const { data } = await serverFetch<CreditHoldShop[]>("/api/credit/shops?status=HOLD");
+  return data ?? [];
+}
 
+/** GET /api/credit/shops/stats — released-this-week count */
+export async function getCreditHoldStats(): Promise<{ releasedThisWeek: number }> {
+  const { data } = await serverFetch<{ releasedThisWeek: number }>("/api/credit/shops/stats");
+  return data ?? { releasedThisWeek: 0 };
+}
 const MOCK_PJP: PjpShopAssignment[] = [
   { day: "Mon", shopId: "s1", shopName: "Al-Noor General Store" }, { day: "Mon", shopId: "s2", shopName: "Hafeez Cold Store" }, { day: "Mon", shopId: "s3", shopName: "Saleem Kirana" },
   { day: "Tue", shopId: "s4", shopName: "Rehman Brothers" }, { day: "Tue", shopId: "s5", shopName: "Faisal Traders" },
@@ -70,11 +80,6 @@ const MOCK_CREDIT_HOLDS: CreditHoldShop[] = [
   { shopId: "s8", shopName: "Madina Super Store", bookerName: "Naveed Ahmed", outstandingPaisa: 1_68_500_00, holdReason: "35 days overdue invoice", heldSinceDaysAgo: 2 },
 ];
 
-/** GET /api/credit/shops?status=HOLD (Section 4.4) */
-export async function getCreditHolds(): Promise<CreditHoldShop[]> {
-  const { data } = await serverFetch<CreditHoldShop[]>("/api/credit/shops?status=HOLD");
-  return data ?? MOCK_CREDIT_HOLDS;
-}
 export async function getOutletApprovalStats() {
   const session = await requireRole("SALES_MGR", "ADMIN");
 

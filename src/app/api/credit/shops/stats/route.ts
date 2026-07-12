@@ -2,26 +2,21 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, withErrorHandling } from "@/lib/api-response";
 
-/** GET /api/outlets — active outlet list for dropdowns. */
+/** GET /api/credit/shops/stats — released-this-week count for the Credit Hold KPI card. */
 export const GET = withErrorHandling(async () => {
   const session = await requireRole("SALES_MGR", "ADMIN");
 
-  const outlets = await prisma.outlet.findMany({
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const releasedThisWeek = await prisma.creditHold.count({
     where: {
       tenantId: session.tenantId,
-      approvalStatus: "ACTIVE",
+      active: false,
+      releasedAt: { gte: sevenDaysAgo },
       isDeleted: false,
-    } as never,
-    select: {
-      id: true,
-      name: true,
-      area: true,
-      ownerName: true,
-    },
-    orderBy: {
-      name: "asc",
     },
   });
 
-  return ok(outlets);
+  return ok({ releasedThisWeek });
 });

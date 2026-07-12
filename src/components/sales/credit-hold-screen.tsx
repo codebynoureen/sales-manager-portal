@@ -16,7 +16,7 @@ function formatPaisa(paisa: number) {
 function fmtLakh(paisa:number){
  return `${(paisa / 100 / 100000).toFixed(1)}L`;
 }
-export function CreditHoldScreen({ shops: initialShops }: { shops: CreditHoldShop[] }) {
+export function CreditHoldScreen({ shops: initialShops, releasedThisWeek }: { shops: CreditHoldShop[]; releasedThisWeek: number }) {
   const router = useRouter();
   const [shops, setShops] = useState(initialShops);
   const [modalOpen, setModalOpen] = useState(false);
@@ -108,7 +108,7 @@ return (
       icon={CheckCircle2}
       iconColorClass="text-success"
       iconBgClass="bg-success-subtle"
-      value={6}
+value={releasedThisWeek}
       label="Released This Week"
     />
 
@@ -116,8 +116,7 @@ return (
       icon={Clock}
       iconColorClass="text-warning"
       iconBgClass="bg-warning-subtle"
-      value="3.4 days"
-      label="Avg. Days on Hold"
+value={shops.length > 0 ? `${(shops.reduce((s, h) => s + h.heldSinceDaysAgo, 0) / shops.length).toFixed(1)} days` : "0 days"}      label="Avg. Days on Hold"
     />
   </div>
 
