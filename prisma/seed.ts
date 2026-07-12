@@ -4,8 +4,8 @@ const prisma = new PrismaClient();
 
 // ⚠️ CHANGE THESE TWO before running:
 const TENANT_ID = "tenant_demo"; // must match the tenantId in your Supabase app_metadata claim
-const SALES_MANAGER_AUTH_UID = "PASTE-YOUR-SUPABASE-AUTH-UID-HERE"; // Supabase dashboard → Authentication → Users → copy the UID
-const SALES_MANAGER_EMAIL = "manager@example.com"; // must match the account you log in with
+const SALES_MANAGER_AUTH_UID = "a1352c01-98a6-4b8c-aea5-549d71e33f77"; // Supabase dashboard → Authentication → Users → copy the UID
+const SALES_MANAGER_EMAIL = "salesmanager@test.com"; // must match the account you log in with
 
 async function main() {
   // ── Tenant ──────────────────────────────────────────────

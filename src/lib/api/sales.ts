@@ -1,3 +1,5 @@
+import { requireRole } from "../auth";
+import { prisma } from "../prisma";
 import { serverFetch } from "./server-fetch";
 import type {
   BookerTarget,
@@ -15,6 +17,18 @@ import type {
 // is unreachable/erroring — e.g. during early setup before .env is
 // configured. Once the DB has real rows, real data always wins.
 // ═══════════════════════════════════════════════════════════
+
+interface BookerOption {
+  id: string;
+  name: string;
+  area: string | null;
+}
+
+/** GET /api/sales/bookers — real booker list. */
+export async function getBookers(): Promise<BookerOption[]> {
+  const { data } = await serverFetch<BookerOption[]>("/api/sales/bookers");
+  return data ?? [];
+}
 
 /** GET /api/sales/targets/achievement (Section 4.2) */
 export async function getBookerTargets(): Promise<BookerTarget[]> {
@@ -61,7 +75,44 @@ export async function getCreditHolds(): Promise<CreditHoldShop[]> {
   const { data } = await serverFetch<CreditHoldShop[]>("/api/credit/shops?status=HOLD");
   return data ?? MOCK_CREDIT_HOLDS;
 }
+export async function getOutletApprovalStats() {
+  const session = await requireRole("SALES_MGR", "ADMIN");
 
+  const [pending, approved, rejected] = await Promise.all([
+    prisma.outlet.count({
+      where: {
+        tenantId: session.tenantId,
+        approvalStatus: "PENDING",
+        isDeleted: false,
+      },
+    }),
+
+    prisma.outlet.count({
+      where: {
+        tenantId: session.tenantId,
+        approvalStatus: "ACTIVE",
+        isDeleted: false,
+        approvedAt: {
+          gte: new Date(new Date().setDate(1)), // current month
+        },
+      },
+    }),
+
+    prisma.outlet.count({
+      where: {
+        tenantId: session.tenantId,
+        approvalStatus: "REJECTED",
+        isDeleted: false,
+      },
+    }),
+  ]);
+
+  return {
+    pending,
+    approved,
+    rejected,
+  };
+}
 const MOCK_PENDING_OUTLETS: PendingOutlet[] = [
   { outletId: "o1", shopName: "Madina Super Store", bookerName: "Naveed Ahmed", area: "Iqbal Town", ownerName: "Imran Sheikh", mobile: "0300-4471882", address: "Shop 8, Iqbal Town Market, Lahore", shopType: "General Store", gpsLat: 31.5497, gpsLng: 74.3436, estMonthlyPurchasePaisa: 1_80_000_00, submittedAgo: "2 hrs ago", status: "PENDING" },
   { outletId: "o2", shopName: "Star Cash & Carry", bookerName: "Usman Khan", area: "Model Town", ownerName: "Waseem Akhtar", mobile: "0321-5589012", address: "Block C, Model Town, Lahore", shopType: "Cash & Carry", gpsLat: 31.4805, gpsLng: 74.3255, estMonthlyPurchasePaisa: 2_40_000_00, submittedAgo: "5 hrs ago", status: "PENDING" },

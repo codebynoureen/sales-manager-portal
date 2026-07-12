@@ -131,4 +131,5 @@ export interface BroadcastMessage {
   recipients: number;
   delivered: number;
   sentAgo: string;
+  targetLabel: string;
 }

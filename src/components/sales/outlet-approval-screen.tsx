@@ -7,11 +7,34 @@ import { CheckCircle2 } from "lucide-react";
 import { FormField, Input } from "@/components/ui/form-field";
 import { RejectOutletModal } from "@/components/sales/reject-outlet-modal";
 import type { PendingOutlet } from "@/types/sales";
+import React from "react";
 
 function formatPaisa(paisa: number) {
   return (paisa / 100).toLocaleString("en-PK");
 }
+export function OutletApprovalScreen({
+  outlets,
+}: {
+  outlets: PendingOutlet[];
+}) {
+  const [items, setItems] = React.useState(outlets);
 
+  return (
+    <div>
+      {items.map((outlet) => (
+        <OutletReviewCard
+          key={outlet.outletId}
+          outlet={outlet}
+          onDecided={() =>
+            setItems((prev) =>
+              prev.filter((x) => x.outletId !== outlet.outletId)
+            )
+          }
+        />
+      ))}
+    </div>
+  );
+}
 export function OutletReviewCard({ outlet, onDecided }: { outlet: PendingOutlet; onDecided: () => void }) {
   const router = useRouter();
   const [rejectOpen, setRejectOpen] = useState(false);

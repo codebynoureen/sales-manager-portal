@@ -27,8 +27,10 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
-  {
+  const getNavSections = (
+  pendingOutlets: number,
+  creditHoldShops: number
+): NavSection[] => [{
     label: "Overview",
     items: [{ label: "Territory Map", href: "/sales", icon: LayoutDashboard }],
   },
@@ -46,13 +48,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Credit Hold Management",
         href: "/sales/credit-holds",
         icon: ShieldAlert,
-        badge: { count: 14, variant: "danger" },
+        badge: { count: creditHoldShops, variant: "danger" },
       },
       {
         label: "New Outlet Approval",
         href: "/sales/outlets/pending",
         icon: Building2,
-        badge: { count: 5, variant: "warning" },
+        badge: { count: pendingOutlets, variant: "warning" },
       },
     ],
   },
@@ -65,7 +67,18 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-export function Sidebar({ tenantName = "Hafeez Brothers Distributors" }: { tenantName?: string }) {
+interface SidebarProps {
+  tenantName?: string;
+  pendingOutlets: number;
+  creditHoldShops: number;
+}
+
+
+
+export function Sidebar({
+  tenantName = "Hafeez Brothers Distributors",
+  pendingOutlets,creditHoldShops,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -83,8 +96,10 @@ export function Sidebar({ tenantName = "Hafeez Brothers Distributors" }: { tenan
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 [scrollbar-width:none]">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label}>
+{getNavSections(
+  pendingOutlets,
+  creditHoldShops
+).map((section) => (          <div key={section.label}>
             <div className="px-4 pb-2 pt-4 text-[10px] font-medium uppercase tracking-[0.1em] text-secondary-text">
               {section.label}
             </div>

@@ -132,8 +132,7 @@ const expiringSoon = active.filter(
         ]}
       />
 
-      <SchemeDetailModal scheme={detailScheme} onClose={() => setDetailScheme(null)} onExpire={(id) => setSchemes((prev) => prev.map((s) => (s.schemeId === id ? { ...s, status: "EXPIRED" } : s)))} />
-      <NewSchemeModal open={newSchemeOpen} onOpenChange={setNewSchemeOpen} />
+<SchemeDetailModal scheme={detailScheme} onClose={() => setDetailScheme(null)} />      <NewSchemeModal open={newSchemeOpen} onOpenChange={setNewSchemeOpen} />
     </>
   );
 }

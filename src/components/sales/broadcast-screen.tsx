@@ -2,27 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { Plus, MessageCircle, CheckCircle2, Users } from "lucide-react";
-import { KpiCard } from "@/components/sales/kpi-card";import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KpiCard } from "@/components/sales/kpi-card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { NewBroadcastModal } from "@/components/sales/new-broadcast-modal";
 import { cn } from "@/lib/utils";
 import type { BroadcastMessage } from "@/types/sales";
 
-export function BroadcastScreen({ broadcasts: initialBroadcasts }: { broadcasts: BroadcastMessage[] }) {
+export function BroadcastScreen({
+  broadcasts: initialBroadcasts,
+  bookerCount,
+  senderName,
+}: {
+  broadcasts: BroadcastMessage[];
+  bookerCount: number;
+  senderName: string;
+}) {
   const [broadcasts, setBroadcasts] = useState(initialBroadcasts);
   const [modalOpen, setModalOpen] = useState(false);
-  const [lastSent, setLastSent] = useState<string | null>(null);
 
   useEffect(() => {
     setBroadcasts(initialBroadcasts);
   }, [initialBroadcasts]);
 
-  function handleSent(message: string, recipients: number) {
-    setBroadcasts((prev) => [{ broadcastId: `bc-${Date.now()}`, message, recipients, delivered: recipients, sentAgo: "Just now" }, ...prev]);
-    setLastSent(message);
-  }
+  const totalRecipients = broadcasts.reduce((sum, b) => sum + b.recipients, 0);
+  const totalDelivered = broadcasts.reduce((sum, b) => sum + b.delivered, 0);
+  const deliveryRate = totalRecipients > 0 ? Math.round((totalDelivered / totalRecipients) * 100) : 0;
+
+  // Most recently sent broadcast (API already orders by createdAt desc).
+  const lastBroadcast = broadcasts[0] ?? null;
 
   const columns: DataTableColumn<BroadcastMessage>[] = [
     { key: "message", header: "Message", render: (r) => <span className="font-medium">{r.message}</span> },
+    { key: "targetLabel", header: "Sent To", render: (r) => <span className="text-sm text-text-muted">{r.targetLabel}</span> },
     { key: "recipients", header: "Recipients", render: (r) => <span className="font-mono">{r.recipients}</span> },
     {
       key: "delivered",
@@ -48,39 +59,18 @@ export function BroadcastScreen({ broadcasts: initialBroadcasts }: { broadcasts:
           New Broadcast
         </button>
       </div>
-<div className="mb-6 grid grid-cols-3 gap-5">
+      <div className="mb-6 grid grid-cols-3 gap-5">
+        <KpiCard icon={MessageCircle} iconColorClass="text-[#25D366]" iconBgClass="bg-[#DCFCE7]" value={broadcasts.length} label="Broadcasts Sent" />
+        <KpiCard icon={CheckCircle2} iconColorClass="text-success" iconBgClass="bg-success-subtle" value={`${deliveryRate}%`} label="Delivery Rate" />
+        <KpiCard icon={Users} iconColorClass="text-primary" iconBgClass="bg-primary-subtle" value={bookerCount} label="Bookers in Zone" />
+      </div>
 
-  <KpiCard
-    icon={MessageCircle}
-    iconColorClass="text-[#25D366]"
-    iconBgClass="bg-[#DCFCE7]"
-    value={24}
-    label="Broadcasts Sent (June)"
-  />
-
-  <KpiCard
-    icon={CheckCircle2}
-    iconColorClass="text-success"
-    iconBgClass="bg-success-subtle"
-    value="97%"
-    label="Delivery Rate"
-  />
-
-  <KpiCard
-    icon={Users}
-    iconColorClass="text-primary"
-    iconBgClass="bg-primary-subtle"
-    value={8}
-    label="Bookers in Zone"
-  />
-
-</div>
       <div className="grid grid-cols-[1fr_380px] gap-5">
         <div className="rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <div className="border-b border-border p-5">
             <span className="font-display text-lg font-semibold text-text">Broadcast History</span>
           </div>
-          <DataTable rows={broadcasts} columns={columns} getRowId={(r) => r.broadcastId} rowClassName={(r) => (r.delivered < r.recipients ? "bg-warning-subtle" : "")} />
+          <DataTable rows={broadcasts} columns={columns} getRowId={(r) => r.broadcastId} rowClassName={(r) => (r.delivered < r.recipients ? "bg-warning-subtle" : "")} emptyMessage="No broadcasts sent yet." />
         </div>
 
         <div className="rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
@@ -88,18 +78,23 @@ export function BroadcastScreen({ broadcasts: initialBroadcasts }: { broadcasts:
             <span className="font-display text-lg font-semibold text-text">Live Preview</span>
           </div>
           <div className="flex flex-col items-end rounded-b-lg bg-[#E5DDD5] p-6">
-            <div className="max-w-[280px] rounded-lg rounded-bl-[4px] bg-[#DCF8C6] px-4 py-3 text-sm text-[#1A1A1A]">
-              <strong>Sales Manager — Farhan Yousuf</strong>
-              <br />
-              <br />
-              {lastSent ?? "🎉 New scheme live now: Buy 30 Get 4 Free on Lays Classic 15g. Push this to all your outlets today!"}
-              <div className="mt-1 text-right text-[10px] text-[#667781]">9:00 AM ✓✓</div>
-            </div>
+            {lastBroadcast ? (
+              <div className="w-[250px] rounded-lg rounded-bl-[4px] bg-[#DCF8C6] px-4 py-3 text-sm text-[#1A1A1A]">
+               <div className="text-[10px] font-medium uppercase tracking-wide text-[#4A6B57]">Sales Manager</div>
+<strong>{senderName}</strong>
+<div className="mt-1 text-[11px] font-medium text-[#4A6B57]">To: {lastBroadcast.targetLabel || "Recipient not recorded"}</div>
+                {lastBroadcast.message}
+                <div className="mt-1 text-right text-[10px] text-[#667781]">
+                  {lastBroadcast.sentAgo} {lastBroadcast.delivered === lastBroadcast.recipients ? "✓✓" : "✓"}
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-[280px] rounded-lg bg-white/60 px-4 py-3 text-sm text-text-muted">No broadcasts sent yet — send one to see the preview here.</div>
+            )}
           </div>
         </div>
       </div>
-
-      <NewBroadcastModal open={modalOpen} onOpenChange={setModalOpen} onSent={handleSent} />
+      <NewBroadcastModal open={modalOpen} onOpenChange={setModalOpen} />
     </>
   );
 }

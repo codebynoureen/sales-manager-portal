@@ -11,10 +11,9 @@ export const GET = withErrorHandling(async () => {
   // RULE 6 / Section 4.1: only Sales Managers see this dashboard.
   const session = await requireRole("SALES_MGR");
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+ const todayStr = new Date().toISOString().slice(0, 10); // "2026-07-13" style, UTC-based
+const startOfDay = new Date(`${todayStr}T00:00:00.000Z`);
+const endOfDay = new Date(`${todayStr}T23:59:59.999Z`);
 
   // Every booker in this manager's tenant (RULE 1: tenantId scoping).
   // Territory is modelled at the tenant level today — if/when a

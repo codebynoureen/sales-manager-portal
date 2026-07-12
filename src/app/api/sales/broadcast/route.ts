@@ -25,13 +25,14 @@ export const GET = withErrorHandling(async () => {
     take: 50,
   });
 
-  const rows: BroadcastMessage[] = broadcasts.map((b) => ({
-    broadcastId: b.id,
-    message: b.message,
-    recipients: b.receipts.length,
-    delivered: b.receipts.filter((r) => r.status === "DELIVERED" || r.status === "SENT" || r.status === "READ").length,
-    sentAgo: timeAgo(b.createdAt),
-  }));
+const rows: BroadcastMessage[] = broadcasts.map((b) => ({
+  broadcastId: b.id,
+  message: b.message,
+  recipients: b.receipts.length,
+  delivered: b.receipts.filter((r) => r.status === "DELIVERED" || r.status === "SENT" || r.status === "READ").length,
+  sentAgo: timeAgo(b.createdAt),
+  targetLabel: b.targetLabel,
+}));
 
   return ok(rows);
 });

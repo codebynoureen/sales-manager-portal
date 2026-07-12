@@ -1,27 +1,51 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
-import { FormField, Input, Select } from "@/components/ui/form-field";
+import { FormField, Input } from "@/components/ui/form-field";
 import { RejectOutletModal } from "@/components/sales/reject-outlet-modal";
 import type { PendingOutlet } from "@/types/sales";
+import React from "react";
 
 function formatPaisa(paisa: number) {
   return (paisa / 100).toLocaleString("en-PK");
 }
 
 export function OutletReviewCard({ outlet, onDecided }: { outlet: PendingOutlet; onDecided: () => void }) {
+  const router = useRouter();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [creditLimit, setCreditLimit] = useState(String((outlet.estMonthlyPurchasePaisa - 30_000_00) / 100));
 
   async function handleApprove() {
+    const creditLimitPaisa = Math.round(Number(creditLimit.replace(/,/g, "")) * 100);
+    if (!creditLimitPaisa || creditLimitPaisa < 0) {
+      toast.error("Please enter a valid credit limit");
+      return;
+    }
+
     setApproving(true);
-    // PATCH /api/booker/outlets/:id/approve — set credit limit + beat, notify booker (Section 4.6)
-    await fetch(`/api/booker/outlets/${outlet.outletId}/approve`, { method: "PATCH" }).catch(() => null);
-    setApproving(false);
-    onDecided();
-    toast.success(`${outlet.shopName} approved and activated — booker notified`);
+    try {
+      const res = await fetch(`/api/booker/outlets/${outlet.outletId}/approve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "APPROVE", creditLimitPaisa }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Failed to approve outlet");
+        return;
+      }
+
+      onDecided();
+      toast.success(`${outlet.shopName} approved and activated — booker notified`);
+      router.refresh();
+    } finally {
+      setApproving(false);
+    }
   }
 
   return (
@@ -51,13 +75,10 @@ export function OutletReviewCard({ outlet, onDecided }: { outlet: PendingOutlet;
 
         <div className="grid grid-cols-2 gap-5">
           <FormField label="Approve Credit Limit (PKR)">
-            <Input className="font-mono" defaultValue={formatPaisa(outlet.estMonthlyPurchasePaisa - 30_000_00)} />
+            <Input className="font-mono" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} />
           </FormField>
           <FormField label="Assign to Beat / Booker">
-            <Select defaultValue={`${outlet.bookerName} — ${outlet.area} (existing)`}>
-              <option>{outlet.bookerName} — {outlet.area} (existing)</option>
-              <option>Sara Malik — Johar Town</option>
-            </Select>
+            <Input value={`${outlet.bookerName} — ${outlet.area}`} disabled />
           </FormField>
         </div>
 
@@ -71,7 +92,7 @@ export function OutletReviewCard({ outlet, onDecided }: { outlet: PendingOutlet;
         </div>
       </div>
 
-      <RejectOutletModal open={rejectOpen} onOpenChange={setRejectOpen} onRejected={onDecided} />
+      <RejectOutletModal outletId={outlet.outletId} open={rejectOpen} onOpenChange={setRejectOpen} onRejected={onDecided} />
     </div>
   );
 }

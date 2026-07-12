@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,30 +14,50 @@ function fmtDate(d: string) {
 export function SchemeDetailModal({
   scheme,
   onClose,
-  onExpire,
 }: {
   scheme: Scheme | null;
   onClose: () => void;
-  onExpire: (schemeId: string) => void;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   if (!scheme) return null;
   const uptakePct = scheme.eligibleShops > 0 ? Math.round((scheme.uptakeShops / scheme.eligibleShops) * 100) : 0;
 
   async function handleExtend() {
     setBusy(true);
-    await fetch(`/api/schemes/${scheme!.schemeId}/extend`, { method: "PATCH" }).catch(() => null);
-    setBusy(false);
-    toast.success("Scheme extended by 3 days");
+    try {
+      const res = await fetch(`/api/schemes/${scheme!.schemeId}/extend`, { method: "PATCH" });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Failed to extend scheme");
+        return;
+      }
+
+      toast.success("Scheme extended by 3 days");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleExpire() {
     setBusy(true);
-    await fetch(`/api/schemes/${scheme!.schemeId}`, { method: "DELETE" }).catch(() => null);
-    setBusy(false);
-    onExpire(scheme!.schemeId);
-    onClose();
-    toast.error("Scheme expired immediately");
+    try {
+      const res = await fetch(`/api/schemes/${scheme!.schemeId}`, { method: "DELETE" });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Failed to expire scheme");
+        return;
+      }
+
+      onClose();
+      toast.error("Scheme expired immediately");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -64,10 +85,10 @@ export function SchemeDetailModal({
             Close
           </Button>
           <Button className="bg-warning text-white hover:bg-[#A85A08]" onClick={handleExtend} disabled={busy}>
-            Extend 3 Days
+            {busy ? "Working…" : "Extend 3 Days"}
           </Button>
           <Button className="bg-danger text-white hover:bg-[#A93226]" onClick={handleExpire} disabled={busy}>
-            Expire Now
+            {busy ? "Working…" : "Expire Now"}
           </Button>
         </DialogFooter>
       </DialogContent>
