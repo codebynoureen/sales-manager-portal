@@ -70,8 +70,19 @@ export function BroadcastScreen({
           <div className="border-b border-border p-5">
             <span className="font-display text-lg font-semibold text-text">Broadcast History</span>
           </div>
-          <DataTable rows={broadcasts} columns={columns} getRowId={(r) => r.broadcastId} rowClassName={(r) => (r.delivered < r.recipients ? "bg-warning-subtle" : "")} emptyMessage="No broadcasts sent yet." />
-        </div>
+<DataTable
+  rows={broadcasts}
+  columns={columns}
+  getRowId={(r) => r.broadcastId}
+  rowClassName={(r) => (r.delivered < r.recipients ? "bg-warning-subtle" : "")}
+  emptyMessage="No broadcasts sent yet."
+  searchPlaceholder="Search message, recipient…"
+  searchFn={(r, q) => r.message.toLowerCase().includes(q.toLowerCase()) || r.targetLabel.toLowerCase().includes(q.toLowerCase())}
+  filters={[
+    { label: "Fully Delivered", predicate: (r) => r.delivered === r.recipients },
+    { label: "Partial/Pending", predicate: (r) => r.delivered < r.recipients },
+  ]}
+/>        </div>
 
         <div className="rounded-lg border border-border bg-surface shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <div className="border-b border-border p-5">

@@ -38,7 +38,17 @@ export function PjpAdherenceTable({ rows }: { rows: PjpAdherenceRow[] }) {
         <span className="font-display text-lg font-semibold text-text">PJP Adherence Report</span>
         <div className="text-sm text-text-muted">Planned vs actual visits — last 7 days</div>
       </div>
-      <DataTable rows={rows} columns={columns} getRowId={(r) => r.bookerUserId} rowClassName={(r) => (r.status === "NEGLECTED" ? "bg-danger-subtle" : "")} />
-    </div>
+<DataTable
+  rows={rows}
+  columns={columns}
+  getRowId={(r) => r.bookerUserId}
+  rowClassName={(r) => (r.status === "NEGLECTED" ? "bg-danger-subtle" : "")}
+  searchPlaceholder="Search booker…"
+  searchFn={(r, q) => r.bookerName.toLowerCase().includes(q.toLowerCase())}
+  filters={[
+    { label: "Neglected", predicate: (r) => r.status === "NEGLECTED" },
+    { label: "Good/Excellent", predicate: (r) => r.status === "GOOD" || r.status === "EXCELLENT" },
+  ]}
+/>    </div>
   );
 }

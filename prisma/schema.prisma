@@ -146,8 +146,8 @@ model Outlet {
 
   beatVisits  BeatVisit[]
   pjpAssignments PjpAssignment[]
-  creditHolds CreditHold[]
-
+creditHolds CreditHold[]
+schemeRedemptions SchemeRedemption[]
   @@index([tenantId])
   @@index([tenantId, approvalStatus])
 }
@@ -230,8 +230,8 @@ model Order {
   tenant  Tenant      @relation(fields: [tenantId], references: [id])
   outlet  Outlet      @relation(fields: [outletId], references: [id])
   items   OrderItem[]
-  invoice Invoice?
-
+invoice Invoice?
+schemeRedemptions SchemeRedemption[]
   // additive — which booker booked it (used for target achievement rollups)
   bookerUserId String?
 
@@ -452,8 +452,8 @@ model Scheme {
   maxQtyPerShop   Int?
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
-  applicableSkus SchemeSku[]
-
+applicableSkus SchemeSku[]
+redemptions    SchemeRedemption[]
   @@index([tenantId])
   @@index([tenantId, active, endDate])
 }
@@ -522,4 +522,25 @@ model WhatsAppLog {
 
   @@index([tenantId])
   @@index([messageSid])
+}
+// Records every time a scheme was actually applied to an order line —
+// powers the "Uptake" and "Cost So Far" numbers on the Scheme list.
+// Written by GET /api/schemes/eligible whenever it resolves an applied scheme.
+model SchemeRedemption {
+  id           String   @id @default(cuid())
+  tenantId     String
+  createdAt    DateTime @default(now())
+
+  schemeId     String
+  outletId     String
+  orderId      String
+  benefitPaisa Int
+
+  scheme Scheme @relation(fields: [schemeId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  order  Order  @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId])
+  @@index([schemeId])
+  @@unique([schemeId, orderId, outletId]) // one redemption row per scheme per order per shop
 }

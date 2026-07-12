@@ -165,6 +165,18 @@ export const GET = withErrorHandling(async (req) => {
 
     return { productId: item.productId, quantity: item.quantity, appliedSchemes, blockedSchemes };
   });
+const redemptionRows = lines.flatMap((line) =>
+  line.appliedSchemes.map((a) => ({
+    tenantId: session.tenantId,
+    schemeId: a.schemeId,
+    outletId: shopId,
+    orderId: orderId,
+    benefitPaisa: a.benefitPaisa,
+  }))
+);
+if (redemptionRows.length > 0) {
+  await prisma.schemeRedemption.createMany({ data: redemptionRows, skipDuplicates: true });
+}
 
   const totalDiscountPaisa = lines.reduce(
     (sum, line) => sum + line.appliedSchemes.reduce((s, a) => s + a.benefitPaisa, 0),
