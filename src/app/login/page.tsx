@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -44,10 +44,7 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-text-muted">Sales Manager Panel</p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-[10px] border border-border bg-surface p-6 shadow-sm"
-        >
+        <form onSubmit={handleSubmit} className="rounded-[10px] border border-border bg-surface p-6 shadow-sm">
           {error && (
             <div className="mb-4 rounded-[8px] border border-danger/20 bg-danger-subtle px-3 py-2 text-sm text-danger">
               {error}
@@ -96,5 +93,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
