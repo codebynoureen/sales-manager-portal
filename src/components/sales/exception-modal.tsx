@@ -34,11 +34,22 @@ export function ExceptionModal({ booker, onClose, onMessageBooker, onEscalate }:
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-text-muted">Area</span>
-            <span className="text-base font-medium text-text">{booker?.area}</span>
-          </div>
-        </div>
+  <div className="flex flex-col gap-0.5">
+    <span className="text-sm font-medium text-text-muted">Area</span>
+    <span className="text-base font-medium text-text">
+      {booker?.area}
+    </span>
+  </div>
+
+  <div className="flex flex-col gap-0.5">
+    <span className="text-sm font-medium text-text-muted">
+      Last Check-In
+    </span>
+    <span className="text-base font-medium text-text">
+      {booker?.lastCheckIn ?? "—"}
+    </span>
+  </div>
+</div>
 
         <DialogFooter className="mt-5 gap-2 border-t border-border pt-5">
           <Button variant="outline" onClick={onClose}>

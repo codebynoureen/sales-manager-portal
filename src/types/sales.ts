@@ -8,6 +8,7 @@ export interface BookerLivePosition {
   lng: number;
   isException: boolean;
   exceptionLabel: string | null;
+  lastCheckIn: string | null;
 }
 
 export interface BookerDailyStats {
